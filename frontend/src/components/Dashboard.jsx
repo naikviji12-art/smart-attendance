@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-const API_BASE_URL = 'http://localhost:5000';
+const API_BASE_URL = 'https://smart-back-kqjw.onrender.com';
 
 function Dashboard({ user, onLogout }) {
   const [userDetails, setUserDetails] = useState(user);
