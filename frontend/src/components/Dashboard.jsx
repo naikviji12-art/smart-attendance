@@ -71,7 +71,7 @@ function Dashboard({ user, onLogout }) {
     
     try {
       setLoadingStudents(true);
-      let url = 'http://localhost:5000/api/students';
+      let url = 'https://backend-samrt.onrender.com/api/students';
       if (searchTerm) {
         url += `?search=${encodeURIComponent(searchTerm)}`;
       }
@@ -113,7 +113,7 @@ function Dashboard({ user, onLogout }) {
     const token = getToken();
 
     try {
-      const response = await fetch('http://localhost:5000/api/students/add', {
+      const response = await fetch('https://backend-samrt.onrender.com/api/students/add', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -146,7 +146,7 @@ function Dashboard({ user, onLogout }) {
     const token = getToken();
 
     try {
-      const response = await fetch(`http://localhost:5000/api/students/${studentId}/attendance`, {
+      const response = await fetch(`https://backend-samrt.onrender.com/api/students/${studentId}/attendance`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -178,7 +178,7 @@ function Dashboard({ user, onLogout }) {
     const token = getToken();
 
     try {
-      const response = await fetch(`http://localhost:5000/api/students/${studentId}`, {
+      const response = await fetch(`https://backend-samrt.onrender.com/api/students/${studentId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
