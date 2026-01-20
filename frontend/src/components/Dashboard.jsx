@@ -6,18 +6,12 @@ function Dashboard({ user, onLogout }) {
   const [error, setError] = useState('');
   
   // Attendance state
-  const [students, setStudents] = useState(() => {
-    return JSON.parse(localStorage.getItem(`students_${user?.id}`)) || [];
-  });
+  const [students, setStudents] = useState([]);
   const [studentName, setStudentName] = useState("");
   const [attendanceDate, setAttendanceDate] = useState("");
   const [search, setSearch] = useState("");
   const [totalStats, setTotalStats] = useState({ present: 0, absent: 0 });
-
-  // Save to localStorage whenever students change
-  useEffect(() => {
-    localStorage.setItem(`students_${user?.id}`, JSON.stringify(students));
-  }, [students, user?.id]);
+  const [loadingStudents, setLoadingStudents] = useState(false);
 
   // Update statistics whenever students or search changes
   useEffect(() => {
@@ -33,13 +27,16 @@ function Dashboard({ user, onLogout }) {
     setTotalStats({ present: totalP, absent: totalA });
   }, [students, search]);
 
-  // Fetch current user details on mount
+  // Fetch current user details and students on mount
   useEffect(() => {
     fetchUserDetails();
+    fetchStudents();
   }, []);
 
+  const getToken = () => localStorage.getItem('token');
+
   const fetchUserDetails = async () => {
-    const token = localStorage.getItem('token');
+    const token = getToken();
     
     try {
       setLoading(true);
@@ -69,53 +66,135 @@ function Dashboard({ user, onLogout }) {
     }
   };
 
+  const fetchStudents = async (searchTerm = '') => {
+    const token = getToken();
+    
+    try {
+      setLoadingStudents(true);
+      let url = 'http://localhost:5000/api/students';
+      if (searchTerm) {
+        url += `?search=${encodeURIComponent(searchTerm)}`;
+      }
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch students');
+      }
+
+      const data = await response.json();
+      setStudents(data.students || []);
+    } catch (err) {
+      console.error('Fetch students error:', err);
+      setError(err.message);
+    } finally {
+      setLoadingStudents(false);
+    }
+  };
+
   const handleLogout = () => {
     if (window.confirm('Are you sure you want to logout?')) {
       onLogout();
     }
   };
 
-  const addStudent = () => {
+  const addStudent = async () => {
     if (!studentName.trim()) {
       alert("Enter student name");
       return;
     }
 
-    const newStudent = {
-      name: studentName,
-      present: 0,
-      absent: 0,
-      history: []
-    };
+    const token = getToken();
 
-    setStudents([...students, newStudent]);
-    setStudentName("");
+    try {
+      const response = await fetch('http://localhost:5000/api/students/add', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ name: studentName }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(data.message || 'Failed to add student');
+        return;
+      }
+
+      setStudents([data.student, ...students]);
+      setStudentName("");
+    } catch (err) {
+      console.error('Add student error:', err);
+      alert('Failed to add student');
+    }
   };
 
-  const markAttendance = (index, status) => {
+  const markAttendance = async (studentId, status) => {
     if (!attendanceDate) {
       alert("Select date");
       return;
     }
 
-    const updatedStudents = [...students];
-    updatedStudents[index].history.push({
-      date: attendanceDate,
-      status,
-      time: new Date().toLocaleTimeString()
-    });
+    const token = getToken();
 
-    if (status === "present") {
-      updatedStudents[index].present++;
-    } else {
-      updatedStudents[index].absent++;
+    try {
+      const response = await fetch(`http://localhost:5000/api/students/${studentId}/attendance`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ date: attendanceDate, status }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(data.message || 'Failed to mark attendance');
+        return;
+      }
+
+      // Update student in local state
+      setStudents(students.map(s => s._id === studentId ? data.student : s));
+    } catch (err) {
+      console.error('Mark attendance error:', err);
+      alert('Failed to mark attendance');
     }
-
-    setStudents(updatedStudents);
   };
 
-  const deleteStudent = (index) => {
-    setStudents(students.filter((_, i) => i !== index));
+  const deleteStudent = async (studentId) => {
+    if (!window.confirm('Are you sure you want to delete this student?')) {
+      return;
+    }
+
+    const token = getToken();
+
+    try {
+      const response = await fetch(`http://localhost:5000/api/students/${studentId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete student');
+      }
+
+      setStudents(students.filter(s => s._id !== studentId));
+    } catch (err) {
+      console.error('Delete student error:', err);
+      alert('Failed to delete student');
+    }
   };
 
   const filteredStudents = students.filter(s =>
@@ -226,7 +305,10 @@ function Dashboard({ user, onLogout }) {
             type="text"
             placeholder="🔍 Search student..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              fetchStudents(e.target.value);
+            }}
             className="w-full px-6 py-4 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200 text-lg"
           />
         </div>
@@ -235,7 +317,11 @@ function Dashboard({ user, onLogout }) {
         <div>
           <h2 className="text-3xl font-bold text-white mb-6">Students List</h2>
           
-          {filteredStudents.length === 0 ? (
+          {loadingStudents ? (
+            <div className="text-center py-12 bg-white rounded-xl shadow-lg animate-fade-in">
+              <p className="text-gray-500 text-xl">Loading students...</p>
+            </div>
+          ) : filteredStudents.length === 0 ? (
             <div className="text-center py-12 bg-white rounded-xl shadow-lg animate-fade-in">
               <p className="text-gray-500 text-xl">No students found</p>
             </div>
@@ -243,7 +329,7 @@ function Dashboard({ user, onLogout }) {
             <div className="space-y-4">
               {filteredStudents.map((student, index) => (
                 <div
-                  key={index}
+                  key={student._id}
                   className="bg-white rounded-xl shadow-lg p-6 hover:shadow-2xl transition-all duration-300 transform hover:scale-102 animate-slide-up"
                   style={{animationDelay: `${index * 0.1}s`}}
                 >
@@ -265,19 +351,19 @@ function Dashboard({ user, onLogout }) {
                   <div className="flex flex-col md:flex-row gap-3 mb-4">
                     <button
                       className="flex-1 bg-gradient-to-r from-green-500 to-green-600 text-white font-bold py-3 rounded-lg hover:from-green-600 hover:to-green-700 active:scale-95 transition-all duration-200 shadow-md hover:shadow-lg"
-                      onClick={() => markAttendance(index, 'present')}
+                      onClick={() => markAttendance(student._id, 'present')}
                     >
                       ✓ Present
                     </button>
                     <button
                       className="flex-1 bg-gradient-to-r from-red-500 to-red-600 text-white font-bold py-3 rounded-lg hover:from-red-600 hover:to-red-700 active:scale-95 transition-all duration-200 shadow-md hover:shadow-lg"
-                      onClick={() => markAttendance(index, 'absent')}
+                      onClick={() => markAttendance(student._id, 'absent')}
                     >
                       ✗ Absent
                     </button>
                     <button
                       className="flex-1 bg-gradient-to-r from-gray-400 to-gray-500 text-white font-bold py-3 rounded-lg hover:from-gray-500 hover:to-gray-600 active:scale-95 transition-all duration-200 shadow-md hover:shadow-lg"
-                      onClick={() => deleteStudent(index)}
+                      onClick={() => deleteStudent(student._id)}
                     >
                       🗑️ Delete
                     </button>
@@ -292,7 +378,7 @@ function Dashboard({ user, onLogout }) {
                         {student.history.map((record, hIndex) => (
                           <div key={hIndex} className="text-sm text-gray-600 flex items-center gap-2">
                             <span className={`inline-block w-2 h-2 rounded-full ${record.status === 'present' ? 'bg-green-500' : 'bg-red-500'}`}></span>
-                            <span>{record.date} - {record.status.toUpperCase()} at {record.time}</span>
+                            <span>{new Date(record.date).toLocaleDateString()} - {record.status.toUpperCase()} at {record.time}</span>
                           </div>
                         ))}
                       </div>
