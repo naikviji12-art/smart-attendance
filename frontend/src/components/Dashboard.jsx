@@ -33,7 +33,14 @@ function Dashboard({ user, onLogout }) {
   useEffect(() => {
     fetchUserDetails();
     fetchStudents();
-  }, []);
+    
+    // Auto-refresh students list every 5 seconds for real-time updates
+    const interval = setInterval(() => {
+      fetchStudents(search);
+    }, 5000);
+    
+    return () => clearInterval(interval);
+  }, [search]);
 
   const getToken = () => localStorage.getItem('token');
 
@@ -73,7 +80,7 @@ function Dashboard({ user, onLogout }) {
     
     try {
       setLoadingStudents(true);
-      let url = 'https://smart-back-kqjw.onrender.com/api/students';
+      let url = 'http://localhost:5000/api/students';
       if (searchTerm) {
         url += `?search=${encodeURIComponent(searchTerm)}`;
       }
@@ -115,7 +122,7 @@ function Dashboard({ user, onLogout }) {
     const token = getToken();
 
     try {
-      const response = await fetch('https://smart-back-kqjw.onrender.com/api/students/add', {
+      const response = await fetch('http://localhost:5000/api/students/add', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -148,7 +155,7 @@ function Dashboard({ user, onLogout }) {
     const token = getToken();
 
     try {
-      const response = await fetch(`https://smart-back-kqjw.onrender.com/api/students/${studentId}/attendance`, {
+      const response = await fetch(`http://localhost:5000/api/students/${studentId}/attendance`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -180,7 +187,7 @@ function Dashboard({ user, onLogout }) {
     const token = getToken();
 
     try {
-      const response = await fetch(`https://smart-back-kqjw.onrender.com/api/students/${studentId}`, {
+      const response = await fetch(`http://localhost:5000/api/students/${studentId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -380,7 +387,7 @@ function Dashboard({ user, onLogout }) {
                         {student.history.map((record, hIndex) => (
                           <div key={hIndex} className="text-sm text-gray-600 flex items-center gap-2">
                             <span className={`inline-block w-2 h-2 rounded-full ${record.status === 'present' ? 'bg-green-500' : 'bg-red-500'}`}></span>
-                            <span>{new Date(record.date).toLocaleDateString()} - {record.status.toUpperCase()} at {record.time}</span>
+                            <span>{new Date(record.date).toLocaleDateString('en-GB')} - {record.status.toUpperCase()} at {record.time}</span>
                           </div>
                         ))}
                       </div>
