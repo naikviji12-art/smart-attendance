@@ -20,7 +20,7 @@ function SignupForm({ onSignupSuccess, onSwitchToLogin }) {
     setLoading(true);
 
     try {
-      const response = await fetch('https://backend-samrt.onrender.com/api/auth/register', {
+      const response = await fetch('https://smart-back-kqjw.onrender.com/api/auth/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
