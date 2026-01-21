@@ -3,7 +3,7 @@ import { Student } from '../models/Student.js';
 // Add student
 export const addStudent = async (req, res, next) => {
   try {
-    const { name } = req.body;
+    const { name, class: studentClass, image, mobileNumber, address } = req.body;
     const userId = req.user.id;
 
     if (!name || !name.trim()) {
@@ -22,6 +22,10 @@ export const addStudent = async (req, res, next) => {
 
     const student = await Student.create({
       name: name.trim(),
+      class: studentClass || null,
+      image: image || null,
+      mobileNumber: mobileNumber || null,
+      address: address || null,
       userId
     });
 
@@ -201,6 +205,83 @@ export const getAttendanceStats = async (req, res, next) => {
         totalRecords,
         averageAttendance: totalRecords > 0 ? ((totalPresent / totalRecords) * 100).toFixed(2) : 0
       }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get class-wise attendance (grouped by class)
+export const getClassWiseAttendance = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const students = await Student.find({ userId });
+
+    console.log('Fetching class-wise attendance for user:', userId);
+    console.log('Total students found:', students.length);
+
+    // Group students by class
+    const classWiseData = {};
+
+    students.forEach(student => {
+      const studentClass = student.class || 'Unassigned';
+      
+      if (!classWiseData[studentClass]) {
+        classWiseData[studentClass] = {
+          class: studentClass,
+          totalPresent: 0,
+          totalAbsent: 0,
+          students: []
+        };
+      }
+
+      // Count attendance records for this student
+      let studentPresent = 0;
+      let studentAbsent = 0;
+      let attendanceRecords = [];
+
+      student.history.forEach(record => {
+        const dateStr = new Date(record.date).toLocaleDateString('en-GB');
+        if (record.status === 'present') {
+          studentPresent++;
+          classWiseData[studentClass].totalPresent++;
+        } else {
+          studentAbsent++;
+          classWiseData[studentClass].totalAbsent++;
+        }
+        attendanceRecords.push({
+          date: dateStr,
+          status: record.status,
+          time: record.time
+        });
+      });
+
+      classWiseData[studentClass].students.push({
+        studentId: student._id,
+        studentName: student.name,
+        studentImage: student.image,
+        mobileNumber: student.mobileNumber,
+        address: student.address,
+        present: studentPresent,
+        absent: studentAbsent,
+        attendanceRecords: attendanceRecords
+      });
+    });
+
+    // Convert to array and sort by class name
+    const classWiseAttendance = Object.values(classWiseData)
+      .sort((a, b) => {
+        // Put 'Unassigned' at the end
+        if (a.class === 'Unassigned') return 1;
+        if (b.class === 'Unassigned') return -1;
+        return a.class.localeCompare(b.class);
+      });
+
+    console.log('Class-wise attendance records:', classWiseAttendance.length);
+
+    res.status(200).json({
+      success: true,
+      data: classWiseAttendance
     });
   } catch (error) {
     next(error);

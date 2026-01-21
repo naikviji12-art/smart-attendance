@@ -23,6 +23,25 @@ const studentSchema = new mongoose.Schema(
       required: [true, 'Please provide student name'],
       trim: true
     },
+    class: {
+      type: String,
+      trim: true,
+      default: null
+    },
+    image: {
+      type: String,
+      default: null
+    },
+    mobileNumber: {
+      type: String,
+      trim: true,
+      default: null
+    },
+    address: {
+      type: String,
+      trim: true,
+      default: null
+    },
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
