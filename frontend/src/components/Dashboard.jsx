@@ -47,10 +47,17 @@ function Dashboard({ user, onLogout }) {
     
     // Auto-refresh students list every 5 seconds for real-time updates
     const interval = setInterval(() => {
-      fetchStudents(search);
+      fetchStudents();
     }, 5000);
     
     return () => clearInterval(interval);
+  }, []);
+
+  // Handle search separately
+  useEffect(() => {
+    if (search) {
+      fetchStudents(search);
+    }
   }, [search]);
 
   const getToken = () => localStorage.getItem('token');
